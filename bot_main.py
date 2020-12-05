@@ -4,6 +4,8 @@ from memo import Memo
 import telebot
 from telebot import types
 
+import datetime
+
 bot = telebot.TeleBot(config.TOKEN)
 
 
@@ -60,15 +62,20 @@ def main_logic(call):
             item1 = types.InlineKeyboardButton("Вернуться назад", callback_data='start')
             markup.add(item1)
 
-            bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Пришли мне текст одним сообщением</b>", parse_mode='html' reply_markup=markup)
+            bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Пришли мне текст одним сообщением</b>", parse_mode='html', reply_markup=markup)
             @bot.message_handler()
             def text_grabber(message):
-              if message.text:
-                print("TEEEEEEEEEEEEEEEEXXXXXXXXXXXXXXTTTTTTTTTTTT")
-                # memo_recieve[message.chat.id] = message.text      здесь заполнение БД
-              else:
-                markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-                item1 = types.InlineKeyboardButton("Вернуться назад", callback_data='text')
-                markup.add(item1)
-                bot.send_message(message.chat.id, "Это не текст!\n<b>Попробуйте ещё раз!</b>", parse_mode='html', reply_markup = markup)
+                if message.text:
+                    time_now = datetime.datetime.now()
+                    filename = str(call.message.chat.id) + "_" + str(time_now.day) + "-" + str(time_now.month) + "-" + str(time_now.year) + "_" + str(time_now.hour) + "-" + str(time_now.minute) + "-" + str(time_now.second)
+                    print(filename)
+                    file = open(fr"files/texts/{filename}.txt", "w")
+                    file.write(message.text)
+                    file.close()
+                
+                else:
+                    markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
+                    item1 = types.InlineKeyboardButton("Вернуться назад", callback_data='text')
+                    markup.add(item1)
+                    bot.send_message(message.chat.id, "Это не текст!\n<b>Попробуйте ещё раз!</b>", parse_mode='html', reply_markup = markup)
 bot.polling(none_stop=True, interval=0)

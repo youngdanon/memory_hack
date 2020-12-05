@@ -12,11 +12,11 @@ class User:
         self.info_amount += 1
 
 
-    def get_info(self, info_id):
+    def get_memo(self, memo_id):
         return self.list_of_info[info_id]
 
 
-    def delete_info(self, info_id):
+    def delete_memo(self, info_id):
         try:
             self.list_of_info.pop(info_id)
             print("Info sucsessfuly deleted")
