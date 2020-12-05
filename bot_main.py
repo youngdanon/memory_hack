@@ -1,6 +1,7 @@
 import config
 from users import User
 from memo import Memo
+import file_saver
 import telebot
 from telebot import types
 
@@ -67,6 +68,7 @@ def main_logic(call):
             def text_grabber(message):
                 if message.text:
                     time_now = datetime.datetime.now()
+                    # date_now =  time_now.day
                     filename = str(call.message.chat.id) + "_" + str(time_now.day) + "-" + str(time_now.month) + "-" + str(time_now.year) + "_" + str(time_now.hour) + "-" + str(time_now.minute) + "-" + str(time_now.second)
                     print(filename)
                     file = open(fr"files/texts/{filename}.txt", "w")
