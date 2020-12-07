@@ -2,13 +2,23 @@ import config
 from users import User
 from memo import Memo
 import file_saver
+from db_controller import DB
+
 import telebot
 from telebot import types
+
 
 import datetime
 
 bot = telebot.TeleBot(config.TOKEN)
 
+db = DB('./data/memos.db')
+db.create_table()
+
+
+test_notify_delta = [datetime.timedelta(hours=0, minutes=0, seconds=10),
+                    datetime.timedelta(hours=0, minutes=0, seconds=30),
+                    datetime.timedelta(hours=0, minutes=1, seconds=0)]
 
 
 @bot.message_handler(commands=['start'])
@@ -64,20 +74,23 @@ def main_logic(call):
             markup.add(item1)
 
             bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Пришли мне текст одним сообщением</b>", parse_mode='html', reply_markup=markup)
+
             @bot.message_handler()
             def text_grabber(message):
-                if message.text:
-                    time_now = datetime.datetime.now()
-                    # date_now =  time_now.day
-                    filename = str(call.message.chat.id) + "_" + str(time_now.day) + "-" + str(time_now.month) + "-" + str(time_now.year) + "_" + str(time_now.hour) + "-" + str(time_now.minute) + "-" + str(time_now.second)
-                    print(filename)
-                    file = open(fr"files/texts/{filename}.txt", "w")
-                    file.write(message.text)
-                    file.close()
-                
-                else:
-                    markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-                    item1 = types.InlineKeyboardButton("Вернуться назад", callback_data='text')
-                    markup.add(item1)
-                    bot.send_message(message.chat.id, "Это не текст!\n<b>Попробуйте ещё раз!</b>", parse_mode='html', reply_markup = markup)
+                if message.chat.id == call.message.chat.id:
+                    if message.text:
+                        path = file_saver.save_txt(call.message.chat.id, message.text)
+                        next_notify_time = datetime.datetime.now() + test_notify_delta[0]
+                        new_memo = Memo(user_id=message.chat.id,
+                                        memo_type="text", 
+                                        link=path,
+                                        notify_time=next_notify_time,
+                                        notify_count=0)
+                        user = User(message.chat.id)
+                        user.add_memo(new_memo=new_memo)
+                    # else:
+                    #     markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
+                    #     item1 = types.InlineKeyboardButton("Вернуться назад", callback_data='text')
+                    #     markup.add(item1)
+                    #     bot.send_message(message.chat.id, "Это не текст!\n<b>Попробуйте ещё раз!</b>", parse_mode='html', reply_markup = markup)
 bot.polling(none_stop=True, interval=0)
