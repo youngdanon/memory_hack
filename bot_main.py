@@ -15,7 +15,7 @@ bot = telebot.TeleBot(config.TOKEN)
 db = DB('./data/memos.db')
 db.create_table()
 
-memo_name = ""
+memo_name = {}
 
 test_notify_delta = [datetime.timedelta(hours=0, minutes=0, seconds=10),
                     datetime.timedelta(hours=0, minutes=0, seconds=30),
@@ -120,8 +120,7 @@ def memo_naming(message):
     global memo_name
     #if message.chat.id == call.message.chat.id:
     if message.text:
-        memo_name = message.text
-        
+        print(memo_name)
         markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
         item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
         markup.add(item1)
@@ -137,7 +136,7 @@ def text_recieve(message):
         next_notify_time = datetime.datetime.now() + test_notify_delta[0]
         new_memo =  Memo(user_id=message.chat.id,
                             memo_type="text", 
-                            memo_name=memo_name,
+                            memo_name=memo_name.pop(message.chat.id),
                             link=path,
                             notify_time=next_notify_time,
                             notify_count=0)
@@ -152,12 +151,6 @@ def text_recieve(message):
         "Включи уведомления и я буду присылать тебе напоминания.", parse_mode='html', reply_markup=markup)
         bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
-            
-        # else:
-        #     markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        #     item1 = types.InlineKeyboardButton("Вернуться назад", callback_data='text')
-        #     markup.add(item1)
-        #     bot.send_message(message.chat.id, "Это не текст!\n<b>Попробуйте ещё раз!</b>", parse_mode='html', reply_markup = markup)
 
 bot.enable_save_next_step_handlers(delay=2)
 bot.load_next_step_handlers()
