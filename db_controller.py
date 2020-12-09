@@ -1,4 +1,7 @@
 import sqlite3
+from converter import str2dt, dt2str
+import datetime
+
 
 class DB:
     memos = "memos"
@@ -59,9 +62,18 @@ class DB:
         con.close()
 
 
-    def check_time(self, current_time):
+    def get_rows_by_deadline(self, current_time):
         con = sqlite3.connect(self.path)
         cur = con.cursor()
+        cur.execute("SELECT * FROM memos")
+        record = cur.fetchall()
+        return_data = []
+        for row in record:
+            print(row[0], row[5])
+            if current_time >= str2dt(row[5]):
+                self.delete_row(row[0])
+                return_data.append(row)
         con.commit()
         cur.close()
         con.close()
+        return return_data

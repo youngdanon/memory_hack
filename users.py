@@ -1,17 +1,21 @@
 from memo import Memo
 from db_controller import DB
-import datetime
-import sqlite3
-
+from converter import dt2str, str2dt
 db = DB('./data/memos.db')
 
-def dt2str(raw_dt):
-    str_dt = str(raw_dt)[:-7]
-    return str_dt
-
-def str2dt(str_dt):
-    new_dt = datetime.datetime.strptime(str_dt, '%Y-%m-%d %H:%M:%S')
-    return new_dt
+def return_overdue_memos(current_time):
+    memos_list = []
+    raw_data = db.get_rows_by_deadline(current_time)
+    for raw_row in raw_data:
+        recorded_memo = Memo(user_id=raw_row[1],
+                            memo_type=raw_row[2],
+                            memo_name=raw_row[3],
+                            link=raw_row[4],
+                            notify_time=str2dt(raw_row[5]),
+                            notify_count=raw_row[6])
+        memos_list.append(recorded_memo)
+    return memos_list
+        
 
 class User:
 
@@ -53,3 +57,4 @@ class User:
             db.delete_row(memo_id)
         except Exception as e:
             print("Deletion failed", e)
+

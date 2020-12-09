@@ -1,14 +1,17 @@
 import config
-from users import User
+from users import User, return_overdue_memos
 from memo import Memo
 import file_saver
 from db_controller import DB
+import file_reader
 
 import telebot
 from telebot import types
-
+import keyboards
 
 import datetime
+import time
+import threading
 
 bot = telebot.TeleBot(config.TOKEN)
 
@@ -17,14 +20,45 @@ db.create_table()
 
 memo_name = {}
 
-test_notify_delta = [datetime.timedelta(hours=0, minutes=0, seconds=10),
-                    datetime.timedelta(hours=0, minutes=0, seconds=30),
-                    datetime.timedelta(hours=0, minutes=1, seconds=0)]
 
-def naming_mssg(chat_id):
-    bot.send_message(chat_id,"<b>Вы успешно назвали свой memo!</b>", parse_mode="html")
+test_notify_delta = [datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5)]
+notify_delta = [datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5),
+                    datetime.timedelta(hours=0, minutes=0, seconds=5)]
 
 
+def time_checker():
+    memo_list = return_overdue_memos(datetime.datetime.now())
+    for memo in memo_list:
+        if memo.memo_type == 'text':
+            text = f"Время повторить 🧠\n<b><i>{memo.memo_name}</i>(Текстовый)</b>\n\n{file_reader.txt_read(memo.link)}"
+            bot.send_message(memo.user_id, text, parse_mode='html', reply_markup=keyboards.back_to_main)
+            memo.notify_time += test_notify_delta[memo.notify_count + 1]
+            memo.notify_count += 1
+            if memo.notify_count >= 5:
+                bot.send_message(memo.user_id, f"<b>Memo <i>{memo.memo_name}</i></b> закреплен в вашей памяти надолго.", parse_mode='html', reply_markup=keyboards.back_to_main)
+            else:
+                user = User(memo.user_id)
+                user.add_memo(new_memo=memo)
+            
+        elif memo.memo_type == 'file':
+            pass
+        else:
+            pass
+    print(time.ctime(), "(time_checker)")
+    threading.Timer(3, time_checker).start()
+
+time_checker()
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
@@ -45,84 +79,57 @@ def welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def main_logic(call):
-    if call.data:
-        if call.data == 'main_menu':
-            bot.answer_callback_query(callback_query_id=call.id)
-            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+    if call.data == 'main_menu':
+        bot.answer_callback_query(callback_query_id=call.id)
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
-            markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-            item1 = types.InlineKeyboardButton("Добавить memo", callback_data='start')
-            item2 = types.InlineKeyboardButton("Текущие memo", callback_data='memos_list')
-            item3 = types.InlineKeyboardButton("Помощь", callback_data='help')
-            markup.add(item1, item2, item3)
-            bot.send_message(call.message.chat.id, "-------------------------\n<b>Главное меню</b>",
-                            parse_mode="html", reply_markup=markup)
-    if call.data:
-        if call.data == 'memos_list':
-            bot.answer_callback_query(callback_query_id=call.id)
-            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-            user = User(call.message.chat.id)
-            memo_list = user.get_memos_list()
-            parsed_memo_list = ""
-            for memo in memo_list:
-                if memo.memo_type == 'text':
-                    type_str = "Текстовый memo"
-                elif memo.memo_type == 'photo':
-                    type_str = "Фото-memo"
-                else:
-                    type_str = "Файловый memo"
-                parsed_memo_list +=  f"======================\n{type_str}\n<b>{memo.memo_name}</b>\nСлед. повторение: {memo.notify_time}\nПовторено (раз): {memo.notify_count}\n"
-
-            markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-            item1 = types.InlineKeyboardButton("Назад", callback_data='main_menu')
-            markup.add(item1)
-                
-            bot.send_message(call.message.chat.id, parsed_memo_list + "\n\n\n<b>Твои текущие memo ↑</b>", parse_mode='html', reply_markup=markup)
+        bot.send_message(call.message.chat.id, "<b>Главное меню</b>",
+                        parse_mode="html", reply_markup=keyboards.main_menu)
+                        
+    if call.data == 'memos_list':
+        bot.answer_callback_query(callback_query_id=call.id)
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        user = User(call.message.chat.id)
+        memo_list = user.get_memos_list()
+        parsed_memo_list = ""
+        for memo in memo_list:
+            if memo.memo_type == 'text':
+                type_str = "Текстовый memo"
+            elif memo.memo_type == 'photo':
+                type_str = "Фото-memo"
+            else:
+                type_str = "Файловый memo"
+            parsed_memo_list +=  f"======================\n{type_str}\n<b>{memo.memo_name}</b>\nСлед. повторение: {memo.notify_time}\nПовторено (раз): {memo.notify_count}\n"
+            
+        bot.send_message(call.message.chat.id, parsed_memo_list + "\n\n\n<b>Твои текущие memo ↑</b>", parse_mode='html', reply_markup=keyboards.back_to_main)
 
 
     if call.data == 'help':
         bot.answer_callback_query(callback_query_id=call.id)
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Назад", callback_data='main_menu')
-        markup.add(item1)
-
-        help_text = open('help.txt', 'r', encoding='utf-8')
-        bot.send_message(call.message.chat.id, help_text, reply_markup=markup)
+        
+        help_text = file_reader.txt_read('help.txt')
+        bot.send_message(call.message.chat.id, help_text, parse_mode="html", reply_markup=keyboards.back_to_main)
 
     if call.data == 'start':
         bot.answer_callback_query(callback_query_id=call.id)
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Текст", callback_data='text')
-        item2 = types.InlineKeyboardButton("Фото", callback_data='photo')
-        item3 = types.InlineKeyboardButton("Файл", callback_data='file')
-        markup.add(item1, item2, item3)
         bot.send_message(call.message.chat.id, "Окей, начинаем\n<b>Выбери тип memo:</b>",
-                            parse_mode="html", reply_markup=markup)
+                            parse_mode="html", reply_markup=keyboards.type_select)
 
     if call.data == 'text':
         bot.answer_callback_query(callback_query_id=call.id)
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
-        markup.add(item1)
-
-        msg = bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Назовите свой memo</b>", parse_mode='html', reply_markup=markup)
+        msg = bot.send_message(call.message.chat.id, "Тип выбран✅\n<b>Назовите свой memo</b>", parse_mode='html', reply_markup=keyboards.back_to_main)
         bot.register_next_step_handler(msg, text_memo_naming)
 
     if call.data == 'file':
         bot.answer_callback_query(callback_query_id=call.id)
         bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
-        markup.add(item1)
-
-        msg = bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Назовите свой memo</b>", parse_mode='html', reply_markup=markup)
+        msg = bot.send_message(call.message.chat.id, "Тип выбран✅\n<b>Назовите свой memo</b>", parse_mode='html', reply_markup=keyboards.back_to_main)
         bot.register_next_step_handler(msg, file_memo_naming)
 
         
@@ -134,11 +141,8 @@ def text_memo_naming(message):
         
         memo_name.update({message.chat.id : message.text})
         print(memo_name)
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
-        markup.add(item1)
         
-        msg = bot.send_message(message.chat.id, "Классное название.\n<b>Пришли мне текст одним сообщением</b>", parse_mode='html', reply_markup=markup)
+        msg = bot.send_message(message.chat.id, "Классное название😋\n<b>Пришли мне текст одним сообщением</b>📝", parse_mode='html', reply_markup=keyboards.back_to_main)
         bot.register_next_step_handler(msg, text_recieve)
 
 
@@ -156,12 +160,8 @@ def text_recieve(message):
         user = User(message.chat.id)
         user.add_memo(new_memo=new_memo)
 
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
-        markup.add(item1)
-
-        bot.send_message(message.chat.id, "<b>Мемо успешно создан.</b>\n"
-        "Включи уведомления и я буду присылать тебе напоминания.", parse_mode='html', reply_markup=markup)
+        bot.send_message(message.chat.id, "✅<b>Мемо успешно создан</b>✅\n"
+        "Включи уведомления и я буду присылать тебе напоминания⏰", parse_mode='html', reply_markup=keyboards.back_to_main)
         bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
 
@@ -171,13 +171,8 @@ def file_memo_naming(message):
     if message.text:
         memo_name.update({message.chat.id : message.text})
         print(memo_name,"(document detected)")
-        
-        
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
-        markup.add(item1)
 
-        msg = bot.send_message(message.chat.id, "Классное название.\n<b>Прикрепи 1 файл в следующем сообщении</b>", parse_mode='html', reply_markup=markup)
+        msg = bot.send_message(message.chat.id, "Классное название.\n<b>Прикрепи 1 файл в следующем сообщении</b>", parse_mode='html', reply_markup=keyboards.back_to_main)
         bot.register_next_step_handler(msg, file_recieve)
 
 
@@ -195,12 +190,8 @@ def file_recieve(message):
         user = User(message.chat.id)
         user.add_memo(new_memo=new_memo)
 
-        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
-        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
-        markup.add(item1)
-
         bot.send_message(message.chat.id, "<b>Мемо успешно создан.</b>\n"
-        "Включи уведомления и я буду присылать тебе напоминания.", parse_mode='html', reply_markup=markup)
+        "Включи уведомления и я буду присылать тебе напоминания.", parse_mode='html', reply_markup=keyboards.back_to_main)
         bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
 
