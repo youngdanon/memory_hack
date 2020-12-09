@@ -112,27 +112,79 @@ def main_logic(call):
         markup.add(item1)
 
         msg = bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Назовите свой memo</b>", parse_mode='html', reply_markup=markup)
-        bot.register_next_step_handler(msg, memo_naming)
+        bot.register_next_step_handler(msg, text_memo_naming)
 
-        
-        
-def memo_naming(message):
-    global memo_name
-    #if message.chat.id == call.message.chat.id:
-    if message.text:
-        print(memo_name)
+    if call.data == 'file':
+        bot.answer_callback_query(callback_query_id=call.id)
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
         markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
         item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
         markup.add(item1)
 
+        msg = bot.send_message(call.message.chat.id, "Тип выбран.\n<b>Назовите свой memo</b>", parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(msg, file_memo_naming)
+
+        
+        
+def text_memo_naming(message):
+    global memo_name
+    
+    if message.text:
+        
+        memo_name.update({message.chat.id : message.text})
+        print(memo_name)
+        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
+        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
+        markup.add(item1)
+        
         msg = bot.send_message(message.chat.id, "Классное название.\n<b>Пришли мне текст одним сообщением</b>", parse_mode='html', reply_markup=markup)
         bot.register_next_step_handler(msg, text_recieve)
 
 
 def text_recieve(message):
-    # if message.chat.id == call.message.chat.id:
+    
     if message.text:
         path = file_saver.save_txt(message.chat.id, message.text)
+        next_notify_time = datetime.datetime.now() + test_notify_delta[0]
+        new_memo =  Memo(user_id=message.chat.id,
+                            memo_type="text", 
+                            memo_name=memo_name.pop(message.chat.id),
+                            link=path,
+                            notify_time=next_notify_time,
+                            notify_count=0)
+        user = User(message.chat.id)
+        user.add_memo(new_memo=new_memo)
+
+        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
+        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
+        markup.add(item1)
+
+        bot.send_message(message.chat.id, "<b>Мемо успешно создан.</b>\n"
+        "Включи уведомления и я буду присылать тебе напоминания.", parse_mode='html', reply_markup=markup)
+        bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
+
+def file_memo_naming(message):
+    global memo_name
+    
+    if message.text:
+        memo_name.update({message.chat.id : message.text})
+        print(memo_name,"(document detected)")
+        
+        
+        markup: InlineKeyboardMarkup = types.InlineKeyboardMarkup(row_width=1)
+        item1 = types.InlineKeyboardButton("Вернуться в главное меню", callback_data='main_menu')
+        markup.add(item1)
+
+        msg = bot.send_message(message.chat.id, "Классное название.\n<b>Прикрепи 1 файл в следующем сообщении</b>", parse_mode='html', reply_markup=markup)
+        bot.register_next_step_handler(msg, file_recieve)
+
+
+def file_recieve(message):
+    
+    if message.document:
+        path = file_saver.save_file(message.chat.id, message.text)
         next_notify_time = datetime.datetime.now() + test_notify_delta[0]
         new_memo =  Memo(user_id=message.chat.id,
                             memo_type="text", 

@@ -13,3 +13,13 @@ def save_txt(user_id, text):
     file.write(text)
     file.close()
     return path
+
+def save_file(user_id, file):
+    filename = now_time_name(user_id)
+    print(filename)
+    path = fr"files/texts/{filename}.???"
+
+def save_image(user_id, image):
+    filename = now_time_name(user_id)
+    print(filename)
+    path = fr"files/texts/{filename}.???"
